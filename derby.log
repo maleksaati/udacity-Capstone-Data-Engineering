@@ -1,0 +1,13 @@
+----------------------------------------------------------------
+Wed Mar 06 10:32:32 AST 2024:
+Booting Derby version The Apache Software Foundation - Apache Derby - 10.14.2.0 - (1828579): instance a816c00e-018e-12ad-a10a-000004ad8928 
+on database directory C:\Users\aalsa\Python\udacity-Capstone-Data-Engineering\metastore_db with class loader jdk.internal.loader.ClassLoaders$AppClassLoader@5a2e4553 
+Loaded from file:/C:/Programs/Python/Python312/Lib/site-packages/pyspark/jars/derby-10.14.2.0.jar
+java.vendor=Oracle Corporation
+java.runtime.version=11.0.20+9-LTS-256
+user.dir=c:\Users\aalsa\Python\udacity-Capstone-Data-Engineering
+os.name=Windows 11
+os.arch=amd64
+os.version=10.0
+derby.system.home=null
+Database Class Loader started - derby.database.classpath=''
