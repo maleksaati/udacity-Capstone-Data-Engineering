@@ -1,5 +1,10 @@
 
+def cast_totype(df, cols, type):
+    for c in cols:
+        df = df.withColumn(c, df[c].cast(type))
+    return df
 
+    
 def quality_checks(df, table_name):
     """check count of table to check for data available
 
