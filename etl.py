@@ -39,7 +39,7 @@ def cast_totype(df, cols, type):
     return df
 
 
-def create_trans_mode_parquet(spark, output_path):#Create Dim for Mode of transportation
+def create_trans_mode_dim(spark, output_path):#Create Dim for Mode of transportation
 # Create i94mode list
 
     schema = StructType([StructField("i94mode",IntegerType(),True),StructField("trans_mode",StringType(),True)])
@@ -54,7 +54,7 @@ def create_trans_mode_parquet(spark, output_path):#Create Dim for Mode of transp
     return i94mode
 
 
-def create_i94visa_parquet(spark, output_path):
+def create_i94visa_dim(spark, output_path):
     I94VISA_schema = StructType([StructField("vid",IntegerType(),True),StructField("visatype",StringType(),True)])
 
     I94VISA_data =([(1,"Business"),(2,"Pleasure"),(3,"Student")])
@@ -63,10 +63,11 @@ def create_i94visa_parquet(spark, output_path):
     I94VISA_df =spark.createDataFrame(I94VISA_data, schema=I94VISA_schema)
     #I94VISA_df.show()
     I94VISA_df.write.mode('overwrite').parquet(output_path + "/i94visa.parquet")
+    I94VISA_df.show()
     return I94VISA_df
 
 
-def create_demographics_parquet(spark,output_path):
+def create_demographics_dim(spark,output_path):
     us_demographics_df = spark.read.csv('data/us-cities-demographics.csv', sep=';', inferSchema=True, header=True)
 
     us_demographics_df.printSchema()
@@ -91,17 +92,13 @@ def create_demographics_parquet(spark,output_path):
 
 
 
-def create_immigration_parquet(spark,output_path):
+def create_immigration_dim(spark,output_path):
     immigration_df =spark.read.parquet("data/sas_data")
     immigration_df.show()
 
     immigration_df.dropDuplicates(['admnum']).count()
 
     # Performing cleaning tasks here
-
-    #find percentage of null values in columns
-
-    immigration_df.select([(count(when(isnan(c) | col(c).isNull(), c))/immigration_df.count()*100).alias(c) for c in immigration_df.columns]).show()
 
     #drop columns with more then 60% nulls (visapost, occup,entdepu,insnum, fltno)
     drop_list = ['visapost', 'occup','entdepu','insnum', 'fltno']
@@ -125,16 +122,16 @@ def create_immigration_parquet(spark,output_path):
     
 
 
-def create_temperature_parquet(spark,output_path):
+def create_temperature_dim(spark,output_path):
     fname = '../../data2/GlobalLandTemperaturesByCity.csv'
     temperature_df = spark.read.option("header", True).csv(fname)
 
     temperature_df = temperature_df.groupBy(["Country"]) \
     .agg(F.avg("AverageTemperature").alias('AverageTemperature'),F.first("Latitude").alias('Latitude'), \
          F.first("Longitude").alias('Longitude'))
-    temperature_df.printSchema()
-    temperature_df = temperature_df.withColumn('Country', F.lower(temperature_df.Country))
-    temperature_df.show()
+    
+    temperature_df = temperature_df.withColumn('Country', F.upper(temperature_df.Country))
+    
 
     # Loads the lookup table I94CIT_I94RES
     ctry_df = spark.read.format('csv').options(header='true', inferSchema='true').load("data\I94CIT_I94RES.csv")    
@@ -147,11 +144,15 @@ def create_temperature_parquet(spark,output_path):
     ctry_df =ctry_df.drop("Country")
 
     ctry_df.write.mode("overwrite").parquet(output_path + "\country.parquet")
+
+    ctry_df.show()
+    ctry_df.printSchema()
+
     return ctry_df
     
 
 
-def create_date_parquet(immigration_df,output_path):
+def create_date_dim(immigration_df,output_path):
     i94date_df =immigration_df.select(col('arrdate').alias('arrival_sasdate')).dropDuplicates()
     get_datetime = udf(lambda x: (dt.datetime(1960, 1, 1).date() + dt.timedelta(x)).isoformat() if x else None)
     
@@ -167,7 +168,7 @@ def create_date_parquet(immigration_df,output_path):
     return i94date_df
 
 
-def main():
+def run_pipeline():
     os.environ['PYSPARK_PYTHON'] = sys.executable
     os.environ['PYSPARK_DRIVER_PYTHON'] = sys.executable
 
@@ -187,13 +188,16 @@ def main():
     spark = create_spark_session()
 
 
-    create_trans_mode_parquet(spark, output_path)
-    create_i94visa_parquet(spark, output_path)
-    create_demographics_parquet(spark, output_path)
-    immigration_df = create_immigration_parquet(spark, output_path)
-    create_temperature_parquet(spark, output_path)
-    create_date_parquet(immigration_df, output_path)
+    #create_trans_mode_dim(spark, output_path)
+    i49visa_df = create_i94visa_dim(spark, output_path)
+    demographics_df = create_demographics_dim(spark, output_path)
+    immigration_df = create_immigration_dim(spark, output_path)
+    countries_df = create_temperature_dim(spark, output_path)
+    calendar_df = create_date_dim(immigration_df, output_path)
+
+    return immigration_df, i49visa_df, demographics_df, countries_df, calendar_df
+
 
 if __name__ == "__main__":
-    main()
+    run_pipeline()
     
