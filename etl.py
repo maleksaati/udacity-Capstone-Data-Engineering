@@ -13,11 +13,17 @@ from pyspark.sql.functions import udf
 import datetime as dt
 
 import configparser
-
+import qhi as qhi
 
 
 
 def create_spark_session():
+    """
+    Create Spark Session
+ 
+    Returns:
+        spark: spark session.
+    """
     spark = SparkSession.builder.\
     config("spark.jars.packages","saurfang:spark-sas7bdat:3.0.0-s_2.12")\
     .config("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.3.4")\
@@ -25,36 +31,52 @@ def create_spark_session():
     return spark
 
 
-def cast_totype(df, cols, type):
+def create_trans_mode_dim(spark, output_path):
     """
-    cast columns to specfied type
-    
+    Create mode of transportation dimension table
+
     Args:
-        df : Spark dataframe 
-        cols: list of columns need to be converted
-        type : datatype to be converted to
+        spark: spark session.
+        output_path: path to where stage dim table.
+ 
+    Returns:
+        mode of transportation dimension dataframe.
     """
-    for c in cols:
-        df = df.withColumn(c, df[c].cast(type))
-    return df
-
-
-def create_trans_mode_dim(spark, output_path):#Create Dim for Mode of transportation
-# Create i94mode list
+    #Create Dim for Mode of transportation
+    # Create i94mode list
 
     schema = StructType([StructField("i94mode",IntegerType(),True),StructField("trans_mode",StringType(),True)])
 
     i94mode_data =([(1,"Air"),(2,"Sea"),(3,"Land"),(9,"Not reported")])
 
-# Convert to spark dataframe
+    # Convert to spark dataframe
     i94mode=spark.createDataFrame(i94mode_data, schema=schema)
     #i94mode.show()
 
     i94mode.write.mode('overwrite').parquet(output_path + "/i94mode.parquet")
     return i94mode
 
+def read_trans_mode_dim(spark , path):
+    """
+        Get Trasnportation mode dimension
+
+        Args:
+            spark: spark session
+            path: path for the parquet
+    """
+    return spark.read.parquet(path + "/i94mode.parquet")
 
 def create_i94visa_dim(spark, output_path):
+    """
+    Create Visa type dimension table
+
+    Args:
+        spark: spark session.
+        output_path: path to where stage dim table.
+ 
+    Returns:
+        visatype dimension dataframe.
+    """
     I94VISA_schema = StructType([StructField("vid",IntegerType(),True),StructField("visatype",StringType(),True)])
 
     I94VISA_data =([(1,"Business"),(2,"Pleasure"),(3,"Student")])
@@ -67,7 +89,27 @@ def create_i94visa_dim(spark, output_path):
     return I94VISA_df
 
 
+def read_i94visa_dim(spark , path):
+    """
+        Get Visa Type dimension
+
+        Args:
+            spark: spark session
+            path: path for the parquet
+    """
+    return spark.read.parquet(path + "/i94visa.parquet")
+
 def create_demographics_dim(spark,output_path):
+    """
+    Create US demographics dimension table
+
+    Args:
+        spark: spark session.
+        output_path: path to where stage dim table.
+ 
+    Returns:
+        US demographics dimension dataframe.
+    """
     us_demographics_df = spark.read.csv('data/us-cities-demographics.csv', sep=';', inferSchema=True, header=True)
 
     us_demographics_df.printSchema()
@@ -75,8 +117,8 @@ def create_demographics_dim(spark,output_path):
     int_cols = ['Count', 'Male Population', 'Female Population', 'Total Population', 'Number of Veterans', 'Foreign-born']
     float_cols = ['Median Age', 'Average Household Size']
 
-    us_demographics_df = cast_totype(us_demographics_df, int_cols, IntegerType())
-    us_demographics_df = cast_totype(us_demographics_df, float_cols, DoubleType())
+    us_demographics_df = qhi.cast_totype(us_demographics_df, int_cols, IntegerType())
+    us_demographics_df = qhi.cast_totype(us_demographics_df, float_cols, DoubleType())
 
     us_demographics_df.printSchema()
     
@@ -90,9 +132,27 @@ def create_demographics_dim(spark,output_path):
     us_demographics_df.write.mode('overwrite').parquet(output_path + "/us_cities_demographics.parquet")
     return us_demographics_df
 
+def read_us_cities_demographics_dim(spark , path):
+    """
+        Get US cities  dimension
 
+        Args:
+            spark: spark session
+            path: path for the parquet
+    """
+    return spark.read.parquet(path + "/us_cities_demographics.parquet")
 
 def create_immigration_dim(spark,output_path):
+    """
+    Create US immigration dimension table
+
+    Args:
+        spark: spark session.
+        output_path: path to where stage dim table.
+ 
+    Returns:
+        US immigration dimension dataframe.
+    """
     immigration_df =spark.read.parquet("data/sas_data")
     immigration_df.show()
 
@@ -109,20 +169,33 @@ def create_immigration_dim(spark,output_path):
     immigration_df = immigration_df.drop(*no_needs_col)
 
     immigration_df.printSchema()
-    # create a udf to convert arrival date in SAS format to datetime object
-    #get_datetime = udf(lambda x: (dt.datetime(1960, 1, 1).date() + dt.timedelta(x)).isoformat() if x else None)
-    
-    #immigration_df = immigration_df.withColumn("arrival_date", get_datetime(immigration_df.arrdate))
-    #immigration_df = immigration_df.withColumn("depature_date", get_datetime(immigration_df.depdate))
-
     immigration_df.show()
 
     immigration_df.write.mode("overwrite").parquet(output_path + "\immigration.parquet")
     return immigration_df
     
+def read_immigration_dim(spark , path):
+    """
+        Get immigration dimension
+
+        Args:
+            spark: spark session
+            path: path for the parquet
+    """
+    return spark.read.parquet(path + "/immigration.parquet")
 
 
 def create_temperature_dim(spark,output_path):
+    """
+    Create courtries and temperature dimension table
+
+    Args:
+        spark: spark session.
+        output_path: path to where stage dim table.
+ 
+    Returns:
+        courtries and temperature dimension dataframe.
+    """
     fname = '../../data2/GlobalLandTemperaturesByCity.csv'
     temperature_df = spark.read.option("header", True).csv(fname)
 
@@ -150,9 +223,28 @@ def create_temperature_dim(spark,output_path):
 
     return ctry_df
     
+def read_country_dim(spark , path):
+    """
+        Get countries dimension
+
+        Args:
+            spark: spark session
+            path: path for the parquet
+    """
+    return spark.read.parquet(path + "/country.parquet")
 
 
-def create_date_dim(immigration_df,output_path):
+def create_calendar_dim(immigration_df,output_path):
+    """
+    Create calendar dimension table
+
+    Args:
+        immigration_df: spark immigration dataframe.
+        output_path: path to where stage dim table.
+ 
+    Returns:
+        calendar dimension dataframe.
+    """
     i94date_df =immigration_df.select(col('arrdate').alias('arrival_sasdate')).dropDuplicates()
     get_datetime = udf(lambda x: (dt.datetime(1960, 1, 1).date() + dt.timedelta(x)).isoformat() if x else None)
     
@@ -168,7 +260,25 @@ def create_date_dim(immigration_df,output_path):
     return i94date_df
 
 
+def read_calendar_dim(spark , path):
+    """
+        Get countries dimension
+
+        Args:
+            spark: spark session
+            path: path for the parquet
+    """
+    return spark.read.parquet(path + "/i94date.parquet")
+
+
+
 def run_pipeline():
+    """
+    pipeline to create immigration fact and dimension tables
+
+    Returns: immigration fact df, visatype df, demographics df, coutries df, calendar df
+
+    """
     os.environ['PYSPARK_PYTHON'] = sys.executable
     os.environ['PYSPARK_DRIVER_PYTHON'] = sys.executable
 
@@ -188,15 +298,34 @@ def run_pipeline():
     spark = create_spark_session()
 
 
-    #create_trans_mode_dim(spark, output_path)
+    transportation_mode_df = create_trans_mode_dim(spark, output_path)
     i49visa_df = create_i94visa_dim(spark, output_path)
     demographics_df = create_demographics_dim(spark, output_path)
     immigration_df = create_immigration_dim(spark, output_path)
     countries_df = create_temperature_dim(spark, output_path)
-    calendar_df = create_date_dim(immigration_df, output_path)
+    calendar_df = create_calendar_dim(immigration_df, output_path)
 
-    return immigration_df, i49visa_df, demographics_df, countries_df, calendar_df
+    return immigration_df, i49visa_df, transportation_mode_df, demographics_df, countries_df, calendar_df
 
+def read_data(spark):
+    """
+    Read immigration model from s3
+
+    Returns: immigration fact df, visatype df, demographics df, coutries df, calendar df
+
+    """
+
+    path = "s3a//udatalake/"
+
+    transportation_mode_df = read_trans_mode_dim(spark, path)
+    i49visa_df = read_i94visa_dim(spark, path)
+    demographics_df = read_us_cities_demographics_dim(spark, path)
+    immigration_df = read_immigration_dim(spark, path)
+    countries_df = read_country_dim(spark, path)
+    calendar_df = read_calendar_dim(spark, path)
+
+    
+    return immigration_df, i49visa_df, transportation_mode_df, demographics_df, countries_df, calendar_df
 
 if __name__ == "__main__":
     run_pipeline()
