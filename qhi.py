@@ -51,39 +51,39 @@ def check_integrity(immigration_df, i49visa_df, transportation_mode_df, demograp
     :return: true or false if integrity is correct.
     """
     integrity_demographics = immigration_df.select(F.col("i94addr")).distinct() \
-                            .join(demographics_df, immigration_df["i94addr"] == demographics_df["State Code"], "left_anti") \
+                            .join(demographics_df, immigration_df["i94addr"] == demographics_df["State Code"], "inner") \
                             .count() == 0
 
 
     integrity_countries = immigration_df.select(F.col("i94res")).distinct() \
                                 .join(countries_df, immigration_df["i94res"] == countries_df["Code"],
-                                    "left_anti") \
+                                    "inner") \
                                 .count() == 0
 
     integrity_visatype = immigration_df.select(F.col("i94visa")).distinct() \
-                            .join(i49visa_df, immigration_df["i94visa"] == i49visa_df["vid"], "left_anti") \
+                            .join(i49visa_df, immigration_df["i94visa"] == i49visa_df["vid"], "inner") \
                             .count() == 0
 
-    integrity_transmode = immigration_df.select(F.col("i94mode")).distinct() \
-                            .join(transportation_mode_df, immigration_df["i94mode"] == transportation_mode_df["i94mode"], "left_anti") \
+    integrity_transmode = immigration_df \
+                            .join(transportation_mode_df, immigration_df["i94mode"] == transportation_mode_df["i94mode"], "inner") \
                             .count() == 0
 
-    if(integrity_demographics==0):
+    if(integrity_demographics):
         print("integrity test failed for table demographics")
     else:
         print("integrity test passed for table demographics")
 
-    if(integrity_countries==0):
+    if(integrity_countries):
         print("integrity test failed for table coutries")
     else:
         print("integrity test passed for table coutries")
 
-    if(integrity_visatype==0):
+    if(integrity_visatype):
         print("integrity test failed for table visatype")
     else:
         print("integrity test passed for table visatype")
 
-    if(integrity_transmode==0):
+    if(integrity_transmode):
         print("integrity test failed for table tasnportation mode")
     else: 
         print("integrity test passed for table transportation mode")

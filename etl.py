@@ -122,12 +122,10 @@ def create_demographics_dim(spark,output_path):
 
     us_demographics_df.printSchema()
     
-    #aggr_by_race_df = us_demographics_df.groupBy(["City", "State", "State Code"]).pivot("Race").agg( F.sum('Count'))
     us_demographics_df = us_demographics_df.groupBy(["City", "State", "State Code"]) \
     .agg(F.first("Median Age").alias('median_age'),F.first("Male Population").alias('male_population'), \
          F.first("Female Population").alias('female_population'),F.first("Total Population").alias('total_population'))
     
-    #us_demographics_df = aggr_df2.join(other=aggr_by_race_df, on=["City", "State", "State Code"], how="inner")
     us_demographics_df.show()
     us_demographics_df.write.mode('overwrite').parquet(output_path + "/us_cities_demographics.parquet")
     return us_demographics_df
@@ -156,6 +154,7 @@ def create_immigration_dim(spark,output_path):
     immigration_df =spark.read.parquet("data/sas_data")
     immigration_df.show()
 
+    #drop duplicates if exisist
     immigration_df.dropDuplicates(['admnum']).count()
 
     # Performing cleaning tasks here
@@ -168,8 +167,15 @@ def create_immigration_dim(spark,output_path):
     no_needs_col = ["count", "entdepa", "entdepd", "matflag", "dtaddto", "biryear", "admnum"]
     immigration_df = immigration_df.drop(*no_needs_col)
 
+    #replace nulls with 9 (Not reported) in transportation mode
+    immigration_df = immigration_df.na.fill(value=0,subset=["i94mode"])
+
+    #cast transportation mode to integer
+    immigration_df = qhi.cast_totype(immigration_df,['i94mode','i94res'],IntegerType())
+
     immigration_df.printSchema()
     immigration_df.show()
+  
 
     immigration_df.write.mode("overwrite").parquet(output_path + "\immigration.parquet")
     return immigration_df
