@@ -89,3 +89,5 @@ def check_integrity(immigration_df, i49visa_df, transportation_mode_df, demograp
         print("integrity test passed for table transportation mode")
     
     return integrity_demographics & integrity_countries & integrity_visatype & integrity_transmode
+#return result
+
